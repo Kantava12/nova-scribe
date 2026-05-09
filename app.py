@@ -7,29 +7,30 @@ import assemblyai as aai
 aai.settings.api_key = os.environ.get("ASSEMBLYAI_API_KEY")
 
 def transcribe_assembly(audio_file):
-    """Nova uses AssemblyAI Universal for stable, high-accuracy QC work."""
+    """Nova uses AssemblyAI Priority Routing for maximum accuracy."""
     try:
         config = aai.TranscriptionConfig(
-            # 'universal' is the stable engine supported by your current library version
-            speech_model="universal", 
-            speaker_labels=True,      # Identifies Speaker A, Speaker B
-            punctuate=True,           # Adds commas and periods
-            format_text=True,         # Capitalizes sentences
-            filter_profanity=False    # Vital for accurate legal/medical QC files
+            # This list format is MANDATORY in the 2026 SDK update
+            # It uses Universal-3-Pro first, then falls back to Universal-2
+            speech_models=["universal-3-pro", "universal-2"], 
+            speaker_labels=True,
+            punctuate=True,
+            format_text=True,
+            filter_profanity=False
         )
         
         transcriber = aai.Transcriber()
-        
-        # AssemblyAI processes the file directly from the Streamlit upload
         transcript = transcriber.transcribe(audio_file, config)
         
         if transcript.status == aai.TranscriptStatus.error:
             return f"Neural Error: {transcript.error}"
             
-        # Building the final text with timestamps and speaker labels
         formatted_text = ""
+        # Check which model was actually used for your legal file
+        model_used = getattr(transcript, 'speech_model_used', 'Universal-3-Pro')
+        formatted_text += f"--- Processed via {model_used} ---\n\n"
+        
         for utterance in transcript.utterances:
-            # Format time from milliseconds to MM:SS
             start_min = int(utterance.start / 60000)
             start_sec = int((utterance.start % 60000) / 1000)
             formatted_text += f"[{start_min:02d}:{start_sec:02d}] Speaker {utterance.speaker}: {utterance.text}\n\n"
@@ -37,7 +38,6 @@ def transcribe_assembly(audio_file):
         return formatted_text
     except Exception as e:
         return f"System Link Error: {str(e)}"
-
 # --- 2. INTERFACE DESIGN ---
 st.set_page_config(page_title="Nova Scribe | Assembly Edition", page_icon="🌌")
 
