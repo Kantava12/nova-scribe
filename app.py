@@ -7,15 +7,13 @@ import assemblyai as aai
 aai.settings.api_key = os.environ.get("ASSEMBLYAI_API_KEY")
 
 def transcribe_assembly(audio_file):
-    """Nova uses speaker_threshold to prevent phantom speaker labels."""
+    """Nova uses speech_threshold for precise speaker tracking."""
     try:
         config = aai.TranscriptionConfig(
             speech_models=["universal-3-pro", "universal-2"], 
             speaker_labels=True,
-            # Sensitivity adjustment: 
-            # Lower (e.g. 0.3) = More speakers (sensitive)
-            # Higher (e.g. 0.8) = Fewer speakers (conservative)
-            speaker_threshold=0.5, 
+            # FIXED: Changed from speaker_threshold to speech_threshold
+            speech_threshold=0.5, 
             punctuate=True,
             format_text=True,
             filter_profanity=False
@@ -26,6 +24,24 @@ def transcribe_assembly(audio_file):
         
         if transcript.status == aai.TranscriptStatus.error:
             return f"Neural Error: {transcript.error}"
+            
+        formatted_text = f"*** Processed via {getattr(transcript, 'speech_model_used', 'universal-3-pro')} ***\n\n"
+        
+        for utterance in transcript.utterances:
+            # Precise HH:MM:SS formatting
+            seconds = int(utterance.start / 1000)
+            hh = seconds // 3600
+            mm = (seconds % 3600) // 60
+            ss = seconds % 60
+            
+            # Labeling as S1, S2, etc.
+            speaker_num = ord(utterance.speaker) - 64 
+            
+            formatted_text += f"{hh:02d}:{mm:02d}:{ss:02d} S{speaker_num}: {utterance.text}\n\n"
+            
+        return formatted_text
+    except Exception as e:
+        return f"System Link Error: {str(e)}"
             
         formatted_text = f"*** Processed via {getattr(transcript, 'speech_model_used', 'universal-3-pro')} ***\n\n"
         
