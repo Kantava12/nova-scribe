@@ -7,16 +7,17 @@ import assemblyai as aai
 aai.settings.api_key = os.environ.get("ASSEMBLYAI_API_KEY")
 
 def transcribe_assembly(audio_file):
-    """Nova uses stable 0.5 threshold for professional QC work."""
+    """Nova uses strict disfluency filtering for a 'Zero-Uh' clean verbatim."""
     try:
         config = aai.TranscriptionConfig(
             speech_models=["universal-3-pro", "universal-2"], 
             speaker_labels=True,
-            # Restoring to 0.5 for better turn detection in professional files
             speech_threshold=0.5, 
             punctuate=True,
             format_text=True,
-            filter_profanity=False
+            filter_profanity=False,
+            # This is the secret to removing 'uh', 'um', and 'ah'
+            disfluencies=False 
         )
         
         transcriber = aai.Transcriber()
@@ -25,6 +26,40 @@ def transcribe_assembly(audio_file):
         if transcript.status == aai.TranscriptStatus.error:
             return f"Neural Error: {transcript.error}"
             
+        formatted_text = f"*** Nova Clean Verbatim Engine | {getattr(transcript, 'speech_model_used', 'universal-3-pro')} ***\n\n"
+        
+        for utterance in transcript.utterances:
+            # Automatic 'uh' removal via Python strip-logic as a secondary filter
+            clean_text = utterance.text.replace(" uh,", "").replace(" uh ", " ").replace(" Uh ", " ")
+            
+            seconds = int(utterance.start / 1000)
+            hh = seconds // 3600
+            mm = (seconds % 3600) // 60
+            ss = seconds % 60
+            
+            speaker_num = ord(utterance.speaker) - 64 
+            formatted_text += f"{hh:02d}:{mm:02d}:{ss:02d} S{speaker_num}: {clean_text}\n\n"
+            
+        return formatted_text
+    except Exception as e:
+        return f"System Link Error: {str(e)}"
+        formatted_text = f"*** Nova Clean Verbatim Engine | {getattr(transcript, 'speech_model_used', 'universal-3-pro')} ***\n\n"
+        
+        for utterance in transcript.utterances:
+            # Automatic 'uh' removal via Python strip-logic as a secondary filter
+            clean_text = utterance.text.replace(" uh,", "").replace(" uh ", " ").replace(" Uh ", " ")
+            
+            seconds = int(utterance.start / 1000)
+            hh = seconds // 3600
+            mm = (seconds % 3600) // 60
+            ss = seconds % 60
+            
+            speaker_num = ord(utterance.speaker) - 64 
+            formatted_text += f"{hh:02d}:{mm:02d}:{ss:02d} S{speaker_num}: {clean_text}\n\n"
+            
+        return formatted_text
+    except Exception as e:
+        return f"System Link Error: {str(e)}"
         formatted_text = f"*** Processed via {getattr(transcript, 'speech_model_used', 'universal-3-pro')} ***\n\n"
         
         for utterance in transcript.utterances:
