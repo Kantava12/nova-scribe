@@ -7,13 +7,13 @@ import assemblyai as aai
 aai.settings.api_key = os.environ.get("ASSEMBLYAI_API_KEY")
 
 def transcribe_assembly(audio_file):
-    """Nova uses 0.7 speech_threshold for stable, high-accuracy QC labeling."""
+    """Nova uses stable 0.5 threshold for professional QC work."""
     try:
         config = aai.TranscriptionConfig(
             speech_models=["universal-3-pro", "universal-2"], 
             speaker_labels=True,
-            # 0.7 makes the AI more conservative to prevent 'phantom' speakers
-            speech_threshold=0.7, 
+            # Restoring to 0.5 for better turn detection in professional files
+            speech_threshold=0.5, 
             punctuate=True,
             format_text=True,
             filter_profanity=False
@@ -24,6 +24,24 @@ def transcribe_assembly(audio_file):
         
         if transcript.status == aai.TranscriptStatus.error:
             return f"Neural Error: {transcript.error}"
+            
+        formatted_text = f"*** Processed via {getattr(transcript, 'speech_model_used', 'universal-3-pro')} ***\n\n"
+        
+        for utterance in transcript.utterances:
+            # HH:MM:SS Formatting for easy QC tracking
+            seconds = int(utterance.start / 1000)
+            hh = seconds // 3600
+            mm = (seconds % 3600) // 60
+            ss = seconds % 60
+            
+            # Labeling as S1, S2, etc. (A=1, B=2)
+            speaker_num = ord(utterance.speaker) - 64 
+            
+            formatted_text += f"{hh:02d}:{mm:02d}:{ss:02d} S{speaker_num}: {utterance.text}\n\n"
+            
+        return formatted_text
+    except Exception as e:
+        return f"System Link Error: {str(e)}"
             
         formatted_text = f"*** Processed via {getattr(transcript, 'speech_model_used', 'universal-3-pro')} ***\n\n"
         
