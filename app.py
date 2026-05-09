@@ -7,11 +7,9 @@ import assemblyai as aai
 aai.settings.api_key = os.environ.get("ASSEMBLYAI_API_KEY")
 
 def transcribe_assembly(audio_file):
-    """Nova uses AssemblyAI Priority Routing for maximum accuracy."""
+    """Nova uses refined timestamp formatting for professional QC."""
     try:
         config = aai.TranscriptionConfig(
-            # This list format is MANDATORY in the 2026 SDK update
-            # It uses Universal-3-Pro first, then falls back to Universal-2
             speech_models=["universal-3-pro", "universal-2"], 
             speaker_labels=True,
             punctuate=True,
@@ -24,6 +22,25 @@ def transcribe_assembly(audio_file):
         
         if transcript.status == aai.TranscriptStatus.error:
             return f"Neural Error: {transcript.error}"
+            
+        formatted_text = f"*** Processed via {getattr(transcript, 'speech_model_used', 'universal-3-pro')} ***\n\n"
+        
+        for utterance in transcript.utterances:
+            # Precise math for HH:MM:SS format
+            seconds = int(utterance.start / 1000)
+            hh = seconds // 3600
+            mm = (seconds % 3600) // 60
+            ss = seconds % 60
+            
+            # Shortening 'Speaker A' to 'S1', 'Speaker B' to 'S2', etc.
+            # AssemblyAI uses letters (A, B, C), so we convert them to numbers
+            speaker_num = ord(utterance.speaker) - 64 
+            
+            formatted_text += f"{hh:02d}:{mm:02d}:{ss:02d} S{speaker_num}: {utterance.text}\n\n"
+            
+        return formatted_text
+    except Exception as e:
+        return f"System Link Error: {str(e)}"
             
         formatted_text = ""
         # Check which model was actually used for your legal file
